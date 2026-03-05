@@ -5,7 +5,7 @@ import UserDropdown from "../Dropdown/UserDropdown";
 
 export default function Header() {
   return (
-    <header className="stikcy top-0 header">
+    <header className="sticky top-0 header">
       <div className="container header-wrapper">
         <Link href="/">
           <Image
