@@ -18,7 +18,7 @@ function TradingViewWidget({
   height = 600,
   className,
 }: TradingViewWidgetProps) {
-  const containerRef = useTradingViewWidget(scriptUrl, config, height);
+  const containerRef = useTradingViewWidget(scriptUrl, config);
 
   return (
     <div className="w-full">
@@ -29,11 +29,10 @@ function TradingViewWidget({
         className={cn("tradingview-widget-container", className)}
         ref={containerRef}
       >
-        {/* For script injection but is handled by hook now */}
-        {/* <div
+        <div
           className="tradingview-widget-container__widget"
-          style={{ height: height, width: "100%" }}
-        /> */} 
+          style={{ height: `${height}px`, width: "100%" }}
+        />
       </div>
     </div>
   );
