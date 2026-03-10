@@ -26,7 +26,7 @@ export default function useTradingViewWidget(
 
     return () => {
       if (containerRef.current) {
-        containerRef.current.innerHTML = "";
+        containerRef.current.removeChild(script);
         delete containerRef.current.dataset.loaded;
       }
     };

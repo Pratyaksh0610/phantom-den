@@ -111,7 +111,7 @@ export const HEATMAP_WIDGET_CONFIG = {
     hasSymbolTooltip: true,
     isMonoSize: false,
     width: '100%',
-    height: '600',
+    height: 600,
 };
 
 export const TOP_STORIES_WIDGET_CONFIG = {
@@ -122,7 +122,7 @@ export const TOP_STORIES_WIDGET_CONFIG = {
     locale: 'en',
     market: 'stock',
     width: '100%',
-    height: '600',
+    height: 600,
 };
 
 export const MARKET_DATA_WIDGET_CONFIG = {
