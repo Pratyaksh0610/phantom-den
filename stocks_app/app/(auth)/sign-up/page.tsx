@@ -5,13 +5,12 @@ import InputField from "@/components/forms/InputField";
 import SelectField from "@/components/forms/SelectField";
 import { Button } from "@/components/ui/button";
 import {
+  emailRegex,
   INVESTMENT_GOALS,
   PREFERRED_INDUSTRIES,
   RISK_TOLERANCE_OPTIONS,
 } from "@/lib/constants";
 import { useForm } from "react-hook-form";
-
-const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 
 export default function SignUp() {
   const {

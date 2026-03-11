@@ -59,6 +59,7 @@ const CountrySelect = ({
           role="combobox"
           aria-expanded={open}
           className="country-select-trigger"
+          type="button"
         >
           {value ? (
             <span className="flex items-center gap-2">

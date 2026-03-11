@@ -48,7 +48,7 @@ export default function Layout(props: { children: React.ReactNode }) {
             alt="Dashboard Preview"
             width={1440}
             height={1150}
-            className="auth-dashboard-preview absolure top-0"
+            className="auth-dashboard-preview absolute top-0"
           />
         </div>
       </section>

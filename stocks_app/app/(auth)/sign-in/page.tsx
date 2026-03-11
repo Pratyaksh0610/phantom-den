@@ -8,6 +8,7 @@ import FooterLink from "@/components/forms/FooterLink";
 // import {toast} from "sonner";
 // import {signInEmail} from "better-auth/api";
 import { useRouter } from "next/navigation";
+import { emailRegex } from "@/lib/constants";
 
 const SignIn = () => {
   const router = useRouter();
@@ -48,7 +49,7 @@ const SignIn = () => {
           error={errors.email}
           validation={{
             required: "Email is required",
-            pattern: /^\w+@\w+\.\w+$/,
+            pattern: emailRegex,
           }}
         />
 
