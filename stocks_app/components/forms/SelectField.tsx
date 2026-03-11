@@ -1,15 +1,14 @@
-import { Controller } from "react-hook-form";
+import { Controller, FieldValues } from "react-hook-form";
 import { Label } from "../ui/label";
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 
-export default function SelectField({
+export default function SelectField<T extends FieldValues>({
   name,
   label,
   placeholder,
@@ -17,7 +16,7 @@ export default function SelectField({
   control,
   error,
   required = false,
-}: SelectFieldProps) {
+}: SelectFieldProps<T>) {
   return (
     <div className="space-y-2">
       <Label htmlFor={name} className="form-label">
@@ -31,7 +30,7 @@ export default function SelectField({
         }}
         render={({ field }) => (
           <Select value={field.value} onValueChange={field.onChange}>
-            <SelectTrigger className="select-trigger">
+            <SelectTrigger className="select-trigger" id={name}>
               <SelectValue placeholder={placeholder} />
             </SelectTrigger>
             <SelectContent className="bg-gray-800 border-gray-600 text-white">

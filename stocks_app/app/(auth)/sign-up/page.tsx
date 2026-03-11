@@ -49,8 +49,14 @@ export default function SignUp() {
           register={register}
           error={errors.fullName}
           validation={{
-            required: "Full name is required",
-            minLength: 2,
+            required: {
+              value: true,
+              message: "Full name is mandatory",
+            },
+            minLength: {
+              value: 2,
+              message: "Minimum length should be greater than 2",
+            },
           }}
         />
         <InputField
@@ -60,9 +66,14 @@ export default function SignUp() {
           register={register}
           error={errors.email}
           validation={{
-            required: "Email is required",
-            pattern: emailRegex,
-            message: "Email address is required",
+            required: {
+              value: true,
+              message: "Email is mandatory",
+            },
+            pattern: {
+              value: emailRegex,
+              message: "Please enter a valid Email",
+            },
           }}
         />
         <InputField
@@ -73,8 +84,14 @@ export default function SignUp() {
           register={register}
           error={errors.password}
           validation={{
-            required: "Password is required",
-            minLength: 8,
+            required: {
+              value: true,
+              message: "Password is mandatory",
+            },
+            minLength: {
+              value: 8,
+              message: "Length should be at least 8",
+            },
           }}
         />
         <CountrySelectField
@@ -105,7 +122,7 @@ export default function SignUp() {
         <SelectField
           name="preferredIndustry"
           label="Preferred Industry"
-          placeholder="Select your preferred industy"
+          placeholder="Select your preferred industry"
           options={PREFERRED_INDUSTRIES}
           control={control}
           error={errors.preferredIndustry}

@@ -31,15 +31,16 @@ type CountrySelectProps = {
 };
 
 const CountrySelect = ({
+  id,
   value,
   onChange,
 }: {
+  id:string;
   value: string;
   onChange: (value: string) => void;
 }) => {
   const [open, setOpen] = useState(false);
 
-  // Get country options with flags
   const countries = countryList().getData();
 
   // Helper function to get flag emoji
@@ -60,6 +61,7 @@ const CountrySelect = ({
           aria-expanded={open}
           className="country-select-trigger"
           type="button"
+          id={id}
         >
           {value ? (
             <span className="flex items-center gap-2">
@@ -135,7 +137,7 @@ export const CountrySelectField = ({
           required: required ? `Please select ${label.toLowerCase()}` : false,
         }}
         render={({ field }) => (
-          <CountrySelect value={field.value} onChange={field.onChange} />
+          <CountrySelect id={name} value={field.value} onChange={field.onChange} />
         )}
       />
       {error && <p className="text-sm text-red-500">{error.message}</p>}

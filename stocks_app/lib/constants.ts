@@ -340,4 +340,4 @@ export const WATCHLIST_TABLE_HEADER = [
 
 export const scriptUrl = `https://s3.tradingview.com/external-embedding/embed-widget-`;
 
-export const emailRegex = /^\w+@\w+\.\w+$/;
+export const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
