@@ -9,6 +9,8 @@ import FooterLink from "@/components/forms/FooterLink";
 // import {signInEmail} from "better-auth/api";
 import { useRouter } from "next/navigation";
 import { emailRegex } from "@/lib/constants";
+import { signInWithEmail } from "@/lib/actions/auth-actions";
+import { toast } from "sonner";
 
 const SignIn = () => {
   const router = useRouter();
@@ -25,15 +27,24 @@ const SignIn = () => {
   });
 
   const onSubmit = async (data: SignInFormData) => {
-    // try {
-    //     const result = await signInWithEmail(data);
-    //     if(result.success) router.push('/');
-    // } catch (e) {
-    //     console.error(e);
-    //     toast.error('Sign in failed', {
-    //         description: e instanceof Error ? e.message : 'Failed to sign in.'
-    //     })
-    // }
+    try {
+      const result = await signInWithEmail(data);
+      if (result.success) {
+        router.push("/");
+      } else {
+        toast.error("Sign in failed", {
+          description: result.message || "Invalid email or password",
+        });
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Sign in failed", {
+        description:
+          error instanceof Error
+            ? error.message
+            : "Something went wrong. Please try again.",
+      });
+    }
   };
 
   return (
