@@ -41,6 +41,11 @@ export default function SignUp() {
       if (result.success) {
         router.push("/");
       }
+      else {
+        toast.error("Sign up failed", {
+          description: result.message || "Failed to create an account",
+        });
+      }
     } catch (error) {
       console.error(error);
       toast.error("Sign up failed", {
