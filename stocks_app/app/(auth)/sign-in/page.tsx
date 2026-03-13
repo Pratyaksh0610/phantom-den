@@ -31,14 +31,18 @@ const SignIn = () => {
       const result = await signInWithEmail(data);
       if (result.success) {
         router.push("/");
+      } else {
+        toast.error("Sign in failed", {
+          description: result.message || "Invalid email or password",
+        });
       }
     } catch (error) {
       console.error(error);
-      toast.error("Sign up failed", {
+      toast.error("Sign in failed", {
         description:
           error instanceof Error
             ? error.message
-            : "Failed to create an account",
+            : "Something went wrong. Please try again.",
       });
     }
   };
