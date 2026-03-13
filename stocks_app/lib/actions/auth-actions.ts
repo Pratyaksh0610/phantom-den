@@ -19,17 +19,21 @@ export const signUpWithEmail = async ({
     });
 
     if (response) {
-      await inngest.send({
-        name: "app/user.created",
-        data: {
-          email: email,
-          name: fullName,
-          country: country,
-          investmentGoals: investmentGoals,
-          riskTolerance: riskTolerance,
-          preferredIndustry: preferredIndustry,
-        },
-      });
+      try {
+        await inngest.send({
+          name: "app/user.created",
+          data: {
+            email: email,
+            name: fullName,
+            country: country,
+            investmentGoals: investmentGoals,
+            riskTolerance: riskTolerance,
+            preferredIndustry: preferredIndustry,
+          },
+        });
+      } catch (eventError) {
+        console.error("Post-signup event enqueue failed", eventError);
+      }
     }
     return { success: true, data: response };
   } catch (e) {
@@ -38,10 +42,7 @@ export const signUpWithEmail = async ({
   }
 };
 
-export const signInWithEmail = async ({
-  email,
-  password
-}: SignInFormData) => {
+export const signInWithEmail = async ({ email, password }: SignInFormData) => {
   try {
     const response = await auth.api.signInEmail({
       body: { email: email, password: password },
