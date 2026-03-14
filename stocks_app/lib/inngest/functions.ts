@@ -5,9 +5,9 @@ import {
 } from "@/lib/inngest/prompts";
 import { sendNewsSummaryEmail, sendWelcomeEmail } from "@/lib/nodemailer";
 import { getAllUsersForNewsEmail } from "@/lib/actions/user.actions";
-import { getWatchlistSymbolsByEmail } from "@/lib/actions/watchlist.actions";
 import { getNews } from "@/lib/actions/finnhub.actions";
 import { getFormattedTodayDate } from "@/lib/utils";
+import { getWatchlistSymbolsByEmail } from "../actions/watchlist.queries";
 
 type UserForNewsEmail = {
   id: string;
@@ -65,8 +65,8 @@ export const sendSignUpEmail = inngest.createFunction(
 
 export const sendDailyNewsSummary = inngest.createFunction(
   { id: "daily-news-summary" },
-  // [{ event: "app/send.daily.news" }, { cron: "* * * * *" }],
-  [{ event: "app/send.daily.news" }, { cron: "0 12 * * *" }],
+  [{ event: "app/send.daily.news" }, { cron: "* * * * *" }],
+  // [{ event: "app/send.daily.news" }, { cron: "0 12 * * *" }],
   async ({ step }) => {
     // Step #1: Get all users for news delivery
     const users = await step.run("get-all-users", getAllUsersForNewsEmail);

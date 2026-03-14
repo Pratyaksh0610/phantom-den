@@ -1,10 +1,19 @@
-"use server";
-
-import { getDateRange, validateArticle, formatArticle } from "@/lib/utils";
+import {
+  validateArticle,
+  formatArticle,
+  formatPrice,
+  formatChangePercent,
+  formatMarketCapValue,
+} from "@/lib/utils";
 import { POPULAR_STOCK_SYMBOLS } from "@/lib/constants";
 import { cache } from "react";
+import { auth } from "../better-auth/auth";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import YahooFinance from "yahoo-finance2";
+import { getWatchlistSymbolsByEmail } from "./watchlist.queries";
 
-const FINNHUB_BASE_URL = "https://finnhub.io/api/v1";
+const yahooFinance = new YahooFinance();
 
 export async function fetchJSON<T>(
   url: string,
@@ -29,15 +38,20 @@ export async function fetchJSON<T>(
   }
 }
 
+function generateNumericId(uuid: string): number {
+  let hash = 0;
+  for (let i = 0; i < uuid.length; i++) {
+    const char = uuid.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash |= 0; // Convert to 32-bit integer
+  }
+  return Math.abs(hash);
+}
+
 export async function getNews(
   symbols?: string[],
 ): Promise<MarketNewsArticle[]> {
   try {
-    const range = getDateRange(5);
-    const token = process.env.FINNHUB_API_KEY;
-    if (!token) {
-      throw new Error("FINNHUB API key is not configured");
-    }
     const cleanSymbols = (symbols || [])
       .map((s) => s?.trim().toUpperCase())
       .filter((s): s is string => Boolean(s));
@@ -51,9 +65,27 @@ export async function getNews(
       await Promise.all(
         cleanSymbols.map(async (sym) => {
           try {
-            const url = `${FINNHUB_BASE_URL}/company-news?symbol=${encodeURIComponent(sym)}&from=${range.from}&to=${range.to}&token=${token}`;
-            const articles = await fetchJSON<RawNewsArticle[]>(url, 300);
-            perSymbolArticles[sym] = (articles || []).filter(validateArticle);
+            // Fetch recent news for the specific symbol using Yahoo Finance
+            const result = await yahooFinance.search(sym, { newsCount: 10 });
+            const yfNews = result.news || [];
+
+            // Map Yahoo's format to your RawNewsArticle type
+            const articles: RawNewsArticle[] = yfNews.map((n) => ({
+              id: generateNumericId(n.uuid),
+              headline: n.title,
+              summary: n.title,
+              source: n.publisher,
+              url: n.link,
+              // Convert JS Date to UNIX timestamp in seconds
+              datetime: n.providerPublishTime
+                ? Math.floor(n.providerPublishTime.getTime() / 1000)
+                : undefined,
+              image: n.thumbnail?.resolutions?.[0]?.url || undefined,
+              category: "company",
+              related: (n.relatedTickers || []).join(","),
+            }));
+
+            perSymbolArticles[sym] = articles.filter(validateArticle);
           } catch (e) {
             console.error("Error fetching company news for", sym, e);
             perSymbolArticles[sym] = [];
@@ -62,7 +94,7 @@ export async function getNews(
       );
 
       const collected: MarketNewsArticle[] = [];
-      // Round-robin up to 6 picks
+      // Round-robin up to 6 picks (Kept exactly as you wrote it)
       for (let round = 0; round < maxArticles; round++) {
         for (let i = 0; i < cleanSymbols.length; i++) {
           const sym = cleanSymbols[i];
@@ -84,10 +116,25 @@ export async function getNews(
       // If none collected, fall through to general news
     }
 
-    // General market news fallback or when no symbols provided
-    const generalUrl = `${FINNHUB_BASE_URL}/news?category=general&token=${token}`;
-    const general = await fetchJSON<RawNewsArticle[]>(generalUrl, 300);
+    // General market news fallback or when no symbols provided.
+    // We use '^GSPC' (S&P 500) as the search query to pull high-quality broad market news.
+    const generalResult = await yahooFinance.search("^GSPC", { newsCount: 20 });
+    const generalYfNews = generalResult.news || [];
 
+    const general: RawNewsArticle[] = generalYfNews.map((n) => ({
+      id: generateNumericId(n.uuid),
+      headline: n.title,
+      summary: n.title,
+      source: n.publisher,
+      url: n.link,
+      // Convert JS Date to UNIX timestamp in seconds
+      datetime: n.providerPublishTime
+        ? Math.floor(n.providerPublishTime.getTime() / 1000)
+        : undefined,
+      image: n.thumbnail?.resolutions?.[0]?.url || undefined,
+      category: "general",
+      related: (n.relatedTickers || []).join(","),
+    }));
     const seen = new Set<string>();
     const unique: RawNewsArticle[] = [];
     for (const art of general || []) {
@@ -109,86 +156,91 @@ export async function getNews(
   }
 }
 
+export const getStocksDetails = cache(async (symbol: string) => {
+  const cleanSymbol = symbol.trim().toUpperCase();
+
+  try {
+    // 3. Use the instantiated client to avoid the 'never' TS error
+    const quote = await yahooFinance.quote(cleanSymbol);
+
+    if (!quote || !quote.regularMarketPrice) {
+      throw new Error("Invalid stock data received from API");
+    }
+
+    const currentPrice = quote.regularMarketPrice;
+    const changePercent = quote.regularMarketChangePercent || 0;
+
+    // Safely fallback for metrics that might be missing on certain assets like ETFs
+    const peRatio = quote.trailingPE || quote.forwardPE || null;
+    const marketCap = quote.marketCap || 0;
+
+    return {
+      symbol: cleanSymbol,
+      company: quote.shortName || quote.longName || cleanSymbol,
+      currentPrice,
+      changePercent,
+      priceFormatted: formatPrice(currentPrice),
+      changeFormatted: formatChangePercent(changePercent),
+      peRatio: peRatio?.toFixed(1) || "—",
+      marketCapFormatted: formatMarketCapValue(marketCap),
+    };
+  } catch (error) {
+    console.error(`Error fetching details for ${cleanSymbol}:`, error);
+    throw new Error("Failed to fetch stock details");
+  }
+});
+
 export const searchStocks = cache(
   async (query?: string): Promise<StockWithWatchlistStatus[]> => {
     try {
-      const token = process.env.FINNHUB_API_KEY;
-      if (!token) {
-        // If no token, log and return empty to avoid throwing per requirements
-        console.error(
-          "Error in stock search:",
-          new Error("FINNHUB API key is not configured"),
-        );
-        return [];
-      }
+      const session = await auth.api.getSession({
+        headers: await headers(),
+      });
+      if (!session?.user) redirect("/sign-in");
+
+      const userWatchlistSymbols = await getWatchlistSymbolsByEmail(
+        session.user.email,
+      );
 
       const trimmed = typeof query === "string" ? query.trim() : "";
 
-      let results: FinnhubSearchResult[] = [];
-
+      // 1. Handle Empty State (Default Popular Stocks)
       if (!trimmed) {
-        // Fetch top 10 popular symbols' profiles
-        const top = POPULAR_STOCK_SYMBOLS.slice(0, 10);
-        const profiles = await Promise.all(
-          top.map(async (sym) => {
-            try {
-              const url = `${FINNHUB_BASE_URL}/stock/profile2?symbol=${encodeURIComponent(sym)}&token=${token}`;
-              // Revalidate every hour
-              const profile = await fetchJSON<any>(url, 3600);
-              return { sym, profile } as { sym: string; profile: any };
-            } catch (e) {
-              console.error("Error fetching profile2 for", sym, e);
-              return { sym, profile: null } as { sym: string; profile: any };
-            }
-          }),
-        );
-
-        results = profiles
-          .map(({ sym, profile }) => {
-            const symbol = sym.toUpperCase();
-            const name: string | undefined =
-              profile?.name || profile?.ticker || undefined;
-            const exchange: string | undefined = profile?.exchange || undefined;
-            if (!name) return undefined;
-            const r: FinnhubSearchResult = {
-              symbol,
-              description: name,
-              displaySymbol: symbol,
-              type: "Common Stock",
-            };
-            // We don't include exchange in FinnhubSearchResult type, so carry via mapping later using profile
-            // To keep pipeline simple, attach exchange via closure map stage
-            // We'll reconstruct exchange when mapping to final type
-            (r as any).__exchange = exchange; // internal only
-            return r;
-          })
-          .filter((x): x is FinnhubSearchResult => Boolean(x));
-      } else {
-        const url = `${FINNHUB_BASE_URL}/search?q=${encodeURIComponent(trimmed)}&token=${token}`;
-        const data = await fetchJSON<FinnhubSearchResponse>(url, 1800);
-        results = Array.isArray(data?.result) ? data.result : [];
+        // We map these manually so we don't waste ANY API calls on default UI
+        return POPULAR_STOCK_SYMBOLS.slice(0, 10).map((sym) => {
+          const upper = sym.toUpperCase();
+          return {
+            symbol: upper,
+            name: upper, // Fallback name
+            exchange: "US",
+            type: "Stock",
+            isInWatchlist: userWatchlistSymbols.includes(upper),
+          };
+        });
       }
 
-      const mapped: StockWithWatchlistStatus[] = results
-        .map((r) => {
-          const upper = (r.symbol || "").toUpperCase();
-          const name = r.description || upper;
-          // const exchangeFromDisplay =
-          //   (r.displaySymbol as string | undefined) || undefined;
-          const exchangeFromProfile = (r as any).__exchange as
-            | string
-            | undefined;
-          const exchange = exchangeFromProfile || "US";
-          // const exchange = exchangeFromDisplay || exchangeFromProfile || "US";
-          const type = r.type || "Stock";
-          const item: StockWithWatchlistStatus = {
-            symbol: upper,
-            name,
-            exchange,
-            type,
-            isInWatchlist: false,
+      // 2. Handle Search Query using Yahoo Finance (No API Key Required!)
+      const url = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(
+        trimmed,
+      )}&quotesCount=15&newsCount=0`;
+
+      // Using your existing fetchJSON utility
+      const data = await fetchJSON<any>(url, 1800);
+      const yahooResults = data?.quotes || [];
+
+      // 3. Map Yahoo's response to your TypeScript types
+      const mapped: StockWithWatchlistStatus[] = yahooResults
+        // Filter out news articles or crypto if you only want stocks/ETFs
+        .filter((r: any) => r.quoteType === "EQUITY" || r.quoteType === "ETF")
+        .map((r: any) => {
+          const symbol = (r.symbol || "").toUpperCase();
+          return {
+            symbol,
+            name: r.shortname || r.longname || symbol,
+            exchange: r.exchDisp || r.exchange || "US",
+            type: r.quoteType === "ETF" ? "ETF" : "Stock",
+            isInWatchlist: userWatchlistSymbols.includes(symbol),
           };
-          return item;
         })
         .slice(0, 15);
 
@@ -199,3 +251,58 @@ export const searchStocks = cache(
     }
   },
 );
+//   const cleanSymbol = symbol.trim().toUpperCase();
+
+//   try {
+//     // 1 call to Yahoo Finance replaces 3 calls to Finnhub
+//     const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${cleanSymbol}`;
+
+//     // We can still cache this for 15 minutes (900 seconds)
+//     const data = await fetchJSON<any>(url, 900);
+//     const quote = data?.quoteResponse?.result?.[0];
+
+//     if (!quote) throw new Error('Invalid stock data received from API');
+
+//     return {
+//       symbol: cleanSymbol,
+//       company: quote.shortName || quote.longName || cleanSymbol,
+//       currentPrice: quote.regularMarketPrice || 0,
+//       changePercent: quote.regularMarketChangePercent || 0,
+//       priceFormatted: formatPrice(quote.regularMarketPrice || 0),
+//       changeFormatted: formatChangePercent(quote.regularMarketChangePercent || 0),
+//       peRatio: quote.trailingPE ? quote.trailingPE.toFixed(1) : '—',
+//       marketCapFormatted: formatMarketCapValue(quote.marketCap || 0),
+//     };
+//   } catch (error) {
+//     console.error(`Error fetching details for ${cleanSymbol}:`, error);
+//     // Graceful fallback UI data
+//     return {
+//       symbol: cleanSymbol,
+//       company: cleanSymbol,
+//       currentPrice: 0,
+//       changePercent: 0,
+//       priceFormatted: "Unavailable",
+//       changeFormatted: "—",
+//       peRatio: "—",
+//       marketCapFormatted: "—",
+//     };
+//   }
+// });
+
+// export const getBatchStocksDetails = cache(async (symbols: string[]) => {
+//   if (!symbols || symbols.length === 0) return [];
+
+//   // Join the array into a comma-separated string: "AAPL,MSFT,TSLA"
+//   const cleanSymbols = symbols.map(s => s.trim().toUpperCase()).join(',');
+
+//   try {
+//     const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${cleanSymbols}`;
+
+//     // Cache the entire batch for 15 minutes (900 seconds)
+//     const data = await fetchJSON<any>(url, 900);
+//     return data?.quoteResponse?.result || [];
+//   } catch (error) {
+//     console.error(`Error fetching batch details for ${cleanSymbols}:`, error);
+//     return [];
+//   }
+// });
