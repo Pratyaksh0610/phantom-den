@@ -7,17 +7,18 @@ export function cn(...inputs: ClassValue[]) {
 
 export const formatTimeAgo = (timestamp: number) => {
   const now = Date.now();
-  const diffInMs = now - timestamp * 1000; // Convert to milliseconds
+  const diffInMs = Math.max(0, now - timestamp * 1000); // Clamp future/skewed timestamps
   const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
   const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
 
-  if (diffInHours > 24) {
+  if (diffInHours >= 24) {
     const days = Math.floor(diffInHours / 24);
     return `${days} day${days > 1 ? "s" : ""} ago`;
   } else if (diffInHours >= 1) {
     return `${diffInHours} hour${diffInHours > 1 ? "s" : ""} ago`;
   } else {
-    return `${diffInMinutes} minute${diffInMinutes > 1 ? "s" : ""} ago`;
+    if (diffInMinutes < 1) return "just now";  
+    return `${diffInMinutes} minute${diffInMinutes > 1 ? "s" : ""} ago`;  
   }
 };
 
