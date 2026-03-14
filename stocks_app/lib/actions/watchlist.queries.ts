@@ -15,11 +15,10 @@ const yahooFinance = new YahooFinance();
 export async function getWatchlistSymbolsByEmail(
   email: string,
 ): Promise<string[]> {
+  const mongoose = await connectToDatabase();
+  const db = mongoose.connection.db;
+  if (!db) throw new Error("Database connection not established");
   try {
-    const mongoose = await connectToDatabase();
-    const db = mongoose.connection.db;
-    if (!db) throw new Error("Database connection not established");
-
     const user = await db.collection("user").findOne<{
       _id?: unknown;
       id?: string;
@@ -62,12 +61,11 @@ export async function getWatchlistSymbolsByEmail(
 // };
 
 export const getWatchlistWithData = async () => {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  if (!session?.user) redirect("/sign-in");
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    if (!session?.user) redirect("/sign-in");
-
     const watchlist = await Watchlist.find({ userId: session.user.id })
       .sort({ addedAt: -1 })
       .lean();

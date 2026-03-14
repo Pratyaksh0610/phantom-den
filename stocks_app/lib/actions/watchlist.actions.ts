@@ -7,12 +7,11 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 export const addToWatchlist = async (symbol: string, company: string) => {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  if (!session?.user) redirect("/sign-in");
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    if (!session?.user) redirect("/sign-in");
-
     // Check if stock already exists in watchlist
     const existingItem = await Watchlist.findOne({
       userId: session.user.id,
@@ -41,12 +40,11 @@ export const addToWatchlist = async (symbol: string, company: string) => {
 };
 
 export const removeFromWatchlist = async (symbol: string) => {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  if (!session?.user) redirect("/sign-in");
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    if (!session?.user) redirect("/sign-in");
-
     // Remove from watchlist
     await Watchlist.deleteOne({
       userId: session.user.id,
