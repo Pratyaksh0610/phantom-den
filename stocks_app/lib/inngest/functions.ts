@@ -10,6 +10,7 @@ import { getNews } from "@/lib/actions/finnhub.actions";
 import { getFormattedTodayDate } from "@/lib/utils";
 
 type UserForNewsEmail = {
+  id: string;
   email: string;
   name?: string;
 };
@@ -92,7 +93,7 @@ export const sendDailyNewsSummary = inngest.createFunction(
           }
           perUser.push({ user, articles });
         } catch (e) {
-          console.error("daily-news: error preparing user news", user.email, e);
+          console.error("daily-news: error preparing user news", user.id, e);
           perUser.push({ user, articles: [] });
         }
       }
@@ -112,7 +113,7 @@ export const sendDailyNewsSummary = inngest.createFunction(
           JSON.stringify(articles, null, 2),
         );
 
-        const response = await step.ai.infer(`summarize-news-${user.email}`, {
+        const response = await step.ai.infer(`summarize-news-${user.id}`, {
           model: step.ai.models.gemini({ model: "gemini-2.5-flash" }),
           body: {
             contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -125,25 +126,37 @@ export const sendDailyNewsSummary = inngest.createFunction(
 
         userNewsSummaries.push({ user, newsContent });
       } catch (e) {
-        console.error("Failed to summarize news for : ", user.email);
+        console.error("Failed to summarize news for : ", user.id);
         userNewsSummaries.push({ user, newsContent: null });
       }
     }
 
     // Step #4: (placeholder) Send the emails
-    await step.run("send-news-emails", async () => {
-      await Promise.all(
-        userNewsSummaries.map(async ({ user, newsContent }) => {
-          if (!newsContent) return false;
+    // await step.run("send-news-emails", async () => {
+    //   await Promise.all(
+    //     userNewsSummaries.map(async ({ user, newsContent }) => {
+    //       if (!newsContent) return false;
 
-          return await sendNewsSummaryEmail({
-            email: user.email,
-            date: getFormattedTodayDate(),
-            newsContent,
-          });
-        }),
-      );
-    });
+    //       return await sendNewsSummaryEmail({
+    //         email: user.email,
+    //         date: getFormattedTodayDate(),
+    //         newsContent,
+    //       });
+    //     }),
+    //   );
+    // });
+
+    for (const [index, { user, newsContent }] of userNewsSummaries.entries()) {
+      if (!newsContent) continue;
+
+      await step.run(`send-news-email-${index}`, async () => {
+        await sendNewsSummaryEmail({
+          email: user.email,
+          date: getFormattedTodayDate(),
+          newsContent,
+        });
+      });
+    }
 
     return {
       success: true,

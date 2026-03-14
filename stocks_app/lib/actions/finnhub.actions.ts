@@ -5,34 +5,36 @@ import { POPULAR_STOCK_SYMBOLS } from "@/lib/constants";
 import { cache } from "react";
 
 const FINNHUB_BASE_URL = "https://finnhub.io/api/v1";
-const NEXT_PUBLIC_FINNHUB_API_KEY =
-  process.env.NEXT_PUBLIC_FINNHUB_API_KEY ?? "";
 
 export async function fetchJSON<T>(
   url: string,
   revalidateSeconds?: number,
 ): Promise<T> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
   const options: RequestInit & { next?: { revalidate?: number } } =
     revalidateSeconds
       ? { cache: "force-cache", next: { revalidate: revalidateSeconds } }
       : { cache: "no-store" };
 
-  const res = await fetch(url, options);
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`Fetch failed ${res.status}: ${text}`);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`Fetch failed ${res.status}: ${text}`);
+    }
+    return (await res.json()) as T;
+  } finally {
+    clearTimeout(timeoutId);
   }
-  return (await res.json()) as T;
 }
-
-// export { fetchJSON };
 
 export async function getNews(
   symbols?: string[],
 ): Promise<MarketNewsArticle[]> {
   try {
     const range = getDateRange(5);
-    const token = process.env.FINNHUB_API_KEY ?? NEXT_PUBLIC_FINNHUB_API_KEY;
+    const token = process.env.FINNHUB_API_KEY;
     if (!token) {
       throw new Error("FINNHUB API key is not configured");
     }
@@ -110,7 +112,7 @@ export async function getNews(
 export const searchStocks = cache(
   async (query?: string): Promise<StockWithWatchlistStatus[]> => {
     try {
-      const token = process.env.FINNHUB_API_KEY ?? NEXT_PUBLIC_FINNHUB_API_KEY;
+      const token = process.env.FINNHUB_API_KEY;
       if (!token) {
         // If no token, log and return empty to avoid throwing per requirements
         console.error(
@@ -171,12 +173,13 @@ export const searchStocks = cache(
         .map((r) => {
           const upper = (r.symbol || "").toUpperCase();
           const name = r.description || upper;
-          const exchangeFromDisplay =
-            (r.displaySymbol as string | undefined) || undefined;
+          // const exchangeFromDisplay =
+          //   (r.displaySymbol as string | undefined) || undefined;
           const exchangeFromProfile = (r as any).__exchange as
             | string
             | undefined;
-          const exchange = exchangeFromDisplay || exchangeFromProfile || "US";
+          const exchange = exchangeFromProfile || "US";
+          // const exchange = exchangeFromDisplay || exchangeFromProfile || "US";
           const type = r.type || "Stock";
           const item: StockWithWatchlistStatus = {
             symbol: upper,

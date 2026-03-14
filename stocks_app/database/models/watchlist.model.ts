@@ -1,7 +1,7 @@
 import { model, Model, models, Schema } from "mongoose";
 
 
-export interface WatchlistItem extends Document {
+export interface WatchlistItem {
     userId: string;
     symbol: string;
     company: string;
