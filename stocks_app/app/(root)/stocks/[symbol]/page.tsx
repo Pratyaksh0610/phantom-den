@@ -7,10 +7,23 @@ import {
   TECHNICAL_ANALYSIS_WIDGET_CONFIG,
   COMPANY_FINANCIALS_WIDGET_CONFIG,
 } from "@/lib/constants";
+import { getWatchlistSymbolsByEmail } from "@/lib/actions/watchlist.queries";
+import { headers } from "next/headers";
+import { auth } from "@/lib/better-auth/auth";
+import { redirect } from "next/navigation";
 
 export default async function StockDetails({ params }: StockDetailsPageProps) {
   const { symbol } = await params;
   const scriptUrl = `https://s3.tradingview.com/external-embedding/embed-widget-`;
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session?.user) redirect("/sign-in");
+
+  const results = await getWatchlistSymbolsByEmail(session.user.email);
+
+  const isAlreadyInWatchlist = results.includes(symbol.toUpperCase());
 
   return (
     <div className="flex min-h-screen p-4 md:p-6 lg:p-8">
@@ -41,7 +54,11 @@ export default async function StockDetails({ params }: StockDetailsPageProps) {
         {/* Right column */}
         <div className="flex flex-col gap-6">
           <div className="flex items-center justify-between">
-            <WatchlistButton symbol={symbol.toUpperCase()} company={symbol.toUpperCase()} isInWatchlist={false} />
+            <WatchlistButton
+              symbol={symbol.toUpperCase()}
+              company={symbol.toUpperCase()}
+              isInWatchlist={isAlreadyInWatchlist}
+            />
           </div>
 
           <TradingViewWidget

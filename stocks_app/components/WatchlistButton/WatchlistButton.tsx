@@ -1,5 +1,10 @@
 "use client";
-import React, { useMemo, useState } from "react";
+import { useDebounce } from "@/hooks/useDebounce";
+import { Star, Trash2 } from "lucide-react";
+import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import { usePathname, useRouter } from "next/navigation";
+import React, { useMemo, useState, useEffect } from "react";
+import { toast } from "sonner";
 
 const WatchlistButton = ({
   symbol,
@@ -9,59 +14,103 @@ const WatchlistButton = ({
   type = "button",
   onWatchlistChange,
 }: WatchlistButtonProps) => {
+  // Synchronize internal state with prop (important if search results change)
   const [added, setAdded] = useState<boolean>(!!isInWatchlist);
+  const router: AppRouterInstance = useRouter();
+  const pathName = usePathname();
+  console.log("WatchlistButton Rendered with:", {
+    symbol,
+    company,
+    isInWatchlist,
+    pathName,
+  });
+
+  useEffect(() => {
+    setAdded(!!isInWatchlist);
+  }, [isInWatchlist]);
 
   const label = useMemo(() => {
-    if (type === "icon") return added ? "" : "";
+    if (type === "icon") return "";
     return added ? "Remove from Watchlist" : "Add to Watchlist";
   }, [added, type]);
 
-  const handleClick = () => {
-    const next = !added;
-    setAdded(next);
-    onWatchlistChange?.(symbol, next);
+  // Handle adding/removing stocks via the API Route Bridge
+  const toggleWatchlist = async () => {
+    const action = added ? "remove" : "add";
+
+    try {
+      const res = await fetch("/api/mutateWatchlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol, company, action }),
+      });
+
+      const result = await res.json();
+
+      if (result.success) {
+        toast.success(added ? "Removed from Watchlist" : "Added to Watchlist", {
+          description: `${company} ${
+            added ? "removed from" : "added to"
+          } your watchlist`,
+        });
+
+        // Notify parent component for state synchronization
+        onWatchlistChange?.(symbol, added);
+        {
+          pathName === "/watchlist" && router.refresh();
+        } // Only refresh if we're on the watchlist page to update the list
+      } else {
+        // Rollback UI if the server fails
+        setAdded(!added);
+        toast.error("Failed to update watchlist", {
+          description: result.error || "Please try again later.",
+        });
+      }
+    } catch (error) {
+      setAdded(!added); // Rollback
+      console.error("Watchlist toggle error:", error);
+    }
+  };
+
+  const debouncedToggle = useDebounce(toggleWatchlist, 300);
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    // Optimistic Update: Change the UI immediately
+    const nextState = !added;
+    setAdded(nextState);
+    debouncedToggle();
   };
 
   if (type === "icon") {
     return (
       <button
-        title={added ? `Remove ${symbol} from watchlist` : `Add ${symbol} to watchlist`}
-        aria-label={added ? `Remove ${symbol} from watchlist` : `Add ${symbol} to watchlist`}
+        title={
+          added
+            ? `Remove ${symbol} from watchlist`
+            : `Add ${symbol} to watchlist`
+        }
+        aria-label={
+          added
+            ? `Remove ${symbol} from watchlist`
+            : `Add ${symbol} to watchlist`
+        }
         className={`watchlist-icon-btn ${added ? "watchlist-icon-added" : ""}`}
         onClick={handleClick}
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill={added ? "#FACC15" : "none"}
-          stroke="#FACC15"
-          strokeWidth="1.5"
-          className="watchlist-star"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.385a.563.563 0 00-.182-.557L3.04 10.385a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345l2.125-5.111z"
-          />
-        </svg>
+        <Star fill={added ? "currentColor" : "none"} className="h-5 w-5" />
       </button>
     );
   }
 
   return (
-    <button className={`watchlist-btn ${added ? "watchlist-remove" : ""}`} onClick={handleClick}>
-      {showTrashIcon && added ? (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth={1.5}
-          stroke="currentColor"
-          className="w-5 h-5 mr-2"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M6 7h12M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-7 4v6m4-6v6m4-6v6" />
-        </svg>
-      ) : null}
+    <button
+      className={`watchlist-btn ${added ? "watchlist-remove" : ""}`}
+      onClick={handleClick}
+    >
+      {showTrashIcon && added ? <Trash2 className="h-4 w-4" /> : null}
       <span>{label}</span>
     </button>
   );
