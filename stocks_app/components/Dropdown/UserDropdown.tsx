@@ -14,9 +14,9 @@ import { Button } from "../ui/button";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import NavItems from "../NavItems/NavItems";
-import { signOut } from "@/lib/actions/auth-actions";
+import { signOut } from "@/lib/actions/auth.actions";
 
-export default function UserDropdown( {user} : { user: User } ) {
+export default function UserDropdown({ user }: { user: User }) {
   const router = useRouter();
 
   const handleSignOut = async () => {
