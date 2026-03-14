@@ -9,7 +9,7 @@ import FooterLink from "@/components/forms/FooterLink";
 // import {signInEmail} from "better-auth/api";
 import { useRouter } from "next/navigation";
 import { emailRegex } from "@/lib/constants";
-import { signInWithEmail } from "@/lib/actions/auth-actions";
+import { signInWithEmail } from "@/lib/actions/auth.actions";
 import { toast } from "sonner";
 
 const SignIn = () => {

@@ -4,7 +4,7 @@ import FooterLink from "@/components/forms/FooterLink";
 import InputField from "@/components/forms/InputField";
 import SelectField from "@/components/forms/SelectField";
 import { Button } from "@/components/ui/button";
-import { signUpWithEmail } from "@/lib/actions/auth-actions";
+import { signUpWithEmail } from "@/lib/actions/auth.actions";
 import {
   emailRegex,
   INVESTMENT_GOALS,
@@ -40,8 +40,7 @@ export default function SignUp() {
       const result = await signUpWithEmail(data);
       if (result.success) {
         router.push("/");
-      }
-      else {
+      } else {
         toast.error("Sign up failed", {
           description: result.message || "Failed to create an account",
         });
