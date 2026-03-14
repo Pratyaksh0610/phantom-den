@@ -18,12 +18,6 @@ const WatchlistButton = ({
   const [added, setAdded] = useState<boolean>(!!isInWatchlist);
   const router: AppRouterInstance = useRouter();
   const pathName = usePathname();
-  console.log("WatchlistButton Rendered with:", {
-    symbol,
-    company,
-    isInWatchlist,
-    pathName,
-  });
 
   useEffect(() => {
     setAdded(!!isInWatchlist);
